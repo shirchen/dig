@@ -523,8 +523,16 @@ func (c *Container) Invoke(function interface{}, opts ...InvokeOption) error {
 func (c *Container) verifyAcyclic() error {
 	visited := make(map[key]struct{})
 	for _, n := range c.nodes {
-		if err := detectCycles(n, c, nil /* path */, visited); err != nil {
+		resultTypes, err := c.findAndValidateResults(n)
+		if err != nil {
+			// err = errCycleDetected{Path: []cycleEntry{{Func: n.Location()}}}
+			// This is technically a self-cycle so we can treat it as such.
 			return errf("cycle detected in dependency graph", err)
+		}
+		for resultType := range resultTypes {
+			if err := detectCycles(n, c, []cycleEntry{{Key: resultType, Func: n.Location()}}, visited); err != nil {
+				return errf("cycle detected in dependency graph", err)
+			}
 		}
 	}
 

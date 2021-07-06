@@ -1840,14 +1840,66 @@ func testProvideCycleFails(t *testing.T, dryRun bool) {
 		assert.NoError(t, c.Provide(newD))
 
 		err := c.Invoke(func(*A) {})
-		require.Error(t, err, "expected error when introducing cycle")
-		assert.True(t, IsCycleDetected(err))
+		require.Error(t, err, "expected error when introducing a cycle")
 		assertErrorMatches(t, err,
 			`cycle detected in dependency graph:`,
-			`\*dig.C provided by "go.uber.org/dig".testProvideCycleFails.\S+ \(\S+\)`,
-			`depends on \*dig.B provided by "go.uber.org/dig".testProvideCycleFails.\S+ \(\S+\)`,
-			`depends on \*dig.A provided by "go.uber.org/dig".testProvideCycleFails.\S+ \(\S+\)`,
-			`depends on \*dig.C provided by "go.uber.org/dig".testProvideCycleFails.\S+ \(\S+\)`,
+			`cannot provide \*dig.A from \[0\]`,
+			`already provided by "go.uber.org/dig".testProvideCycleFails.\S+ \(\S+\)`,
+		)
+	})
+}
+
+func TestFailedCycleDetection(t *testing.T) {
+	t.Run("DeferAcyclicVerification bypasses cycle check, VerifyAcyclic catches cycle", func(t *testing.T) {
+		// A      <-- C <- D
+		// |      |__^    ^
+		// |______________|
+		type A struct{}
+		type C struct{}
+		type D struct{}
+		newA := func(*D) *A { return &A{} }
+		newC := func(*C) *C { return &C{} }
+		newD := func(*C) *D { return &D{} }
+
+		c := New(DeferAcyclicVerification())
+		assert.NoError(t, c.Provide(newA))
+		assert.NoError(t, c.Provide(newC))
+		assert.NoError(t, c.Provide(newD))
+
+		err := c.Invoke(func(*A) {})
+		require.Error(t, err, "expected error when introducing cycle")
+		assertErrorMatches(t, err,
+			`cycle detected in dependency graph:`,
+			`cannot provide \*dig.A from \[0\]`,
+			`already provided by "go.uber.org/dig".TestFailedCycleDetection.\S+ \(\S+\)`,
+		)
+	})
+
+	t.Run("DeferAcyclicVerification bypasses cycle check, VerifyAcyclic catches cycle", func(t *testing.T) {
+		// B <- C <- D <- A
+		// |         ^
+		// |_________|
+		type A struct{}
+		type B struct{}
+		type C struct{}
+		type D struct{}
+		newA := func(*C) *A { return &A{} }
+		newB := func(*C) *B { return &B{} }
+		newC := func(*D) *C { return &C{} }
+		newD := func(*A) *D { return &D{} }
+
+		c := New(DeferAcyclicVerification())
+		assert.NoError(t, c.Provide(newA))
+		assert.NoError(t, c.Provide(newB))
+		assert.NoError(t, c.Provide(newC))
+		assert.NoError(t, c.Provide(newD))
+
+		err := c.Invoke(func(*A) {})
+		require.Error(t, err, "expected error when introducing cycle")
+		assertErrorMatches(t, err,
+			`cycle detected in dependency graph:`,
+			`cannot provide \*dig.A from \[0\]`,
+			`already provided by "go.uber.org/dig".TestFailedCycleDetection.\S+ \(\S+\)`,
 		)
 	})
 }
