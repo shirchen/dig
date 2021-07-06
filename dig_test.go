@@ -1850,7 +1850,7 @@ func testProvideCycleFails(t *testing.T, dryRun bool) {
 }
 
 func TestFailedCycleDetection(t *testing.T) {
-	t.Run("DeferAcyclicVerification bypasses cycle check, VerifyAcyclic catches cycle", func(t *testing.T) {
+	t.Run("unit test for case which would previously stack overflow", func(t *testing.T) {
 		// A      <-- C <- D
 		// |      |__^    ^
 		// |______________|
@@ -1875,7 +1875,7 @@ func TestFailedCycleDetection(t *testing.T) {
 		)
 	})
 
-	t.Run("DeferAcyclicVerification bypasses cycle check, VerifyAcyclic catches cycle", func(t *testing.T) {
+	t.Run("unit test for case which would previously stack overflow", func(t *testing.T) {
 		// B <- C <- D <- A
 		// |         ^
 		// |_________|
